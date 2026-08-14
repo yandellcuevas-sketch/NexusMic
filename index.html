@@ -13,7 +13,7 @@
 
 <div class="demo-banner">
   <span class="demo-dot"></span>
-  UI/UX PROTOTYPE — todos los datos y acciones son <strong>DEMO / MOCK</strong>. Ninguna función de voz, sistema o backend está implementada todavía.
+  NEXUS VOICE DESKTOP — MODO PRODUCCIÓN REAL (DISPOSITIVOS Y COMANDOS WINDOWS ACTIVOS)
 </div>
 
 <div class="app-shell" id="appShell">
@@ -236,7 +236,7 @@
           </div>
           <div class="search-box">
             <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-            <input type="text" placeholder="Buscar comando… (demo)" disabled>
+            <input type="text" id="commandSearchInput" placeholder="Buscar comando…">
           </div>
         </div>
 
@@ -458,6 +458,9 @@
   </div>
 </div>
 
+<script src="js/audio-engine.js"></script>
+<script src="js/stt-engine.js"></script>
+<script src="js/wakeword-engine.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
