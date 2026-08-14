@@ -1,36 +1,22 @@
 /* ==========================================================================
-   NEXUS VOICE DESKTOP — UI PROTOTYPE LOGIC
-   All data below is DEMO / MOCK. No real voice recognition, OS control,
-   or backend logic is implemented. This file only drives the interface
-   states, navigation and simulated interactions for design review.
+   NEXUS VOICE DESKTOP — PRODUCTION APPLICATION LOGIC
+   Fully connected UI with Real AudioEngine, STT, WakeWordEngine,
+   CommandRouter, Storage persistence, Mini Mode & System Tray.
    ========================================================================== */
 
 (function () {
   "use strict";
 
   /* ------------------------------------------------------------------ */
-  /* Mock data                                                          */
+  /* Quick Actions Mapping                                              */
   /* ------------------------------------------------------------------ */
   const QUICK_ACTIONS = [
-    { label: "Open Browser", icon: iconBrowser() },
-    { label: "Open ShieldPort", icon: iconShield() },
-    { label: "Files", icon: iconFolder() },
-    { label: "Volume", icon: iconVolume() },
-    { label: "Notes", icon: iconNote() },
-    { label: "USB Devices", icon: iconUsb() },
-  ];
-
-  const COMMAND_HISTORY = [
-    { time: "21:42:03", text: "Open Chrome", sub: null, status: "success" },
-    { time: "21:43:17", text: "Set volume to 40%", sub: null, status: "success" },
-    { time: "21:44:02", text: "Search invoice August", sub: "3 results found in Documents", status: "success" },
-    { time: "21:45:22", text: "Delete Backup folder", sub: "D:\\Backup", status: "confirm" },
-    { time: "21:46:40", text: "Open project folder", sub: null, status: "success" },
-    { time: "21:48:12", text: "Tell me disk space left", sub: "C: 214GB free of 512GB", status: "success" },
-    { time: "21:51:05", text: "Open Spotify", sub: "App not recognized", status: "failed" },
-    { time: "21:53:44", text: "Create a note", sub: null, status: "success" },
-    { time: "21:55:10", text: "Shut down PC", sub: "Cancelled by user", status: "cancelled" },
-    { time: "21:58:33", text: "List connected USB drives", sub: "2 devices found", status: "success" },
+    { label: "Open Browser", intent: "OPEN_CHROME", icon: iconBrowser() },
+    { label: "Open ShieldPort", intent: "OPEN_SHIELDPORT", icon: iconShield() },
+    { label: "Files", intent: "OPEN_EXPLORER", icon: iconFolder() },
+    { label: "Volume", intent: "SET_VOLUME", params: { level: 40 }, icon: iconVolume() },
+    { label: "Notes", intent: "CREATE_NOTE", params: { content: "Quick note from NEXUS" }, icon: iconNote() },
+    { label: "USB Devices", intent: "LIST_USB_DRIVES", icon: iconUsb() },
   ];
 
   const STATUS_BADGE = {
@@ -59,7 +45,7 @@
   };
 
   /* ------------------------------------------------------------------ */
-  /* Icons (inline SVG strings, kept tiny & currentColor-based)          */
+  /* Icons (SVG strings)                                                */
   /* ------------------------------------------------------------------ */
   function iconBrowser() { return `<svg viewBox="0 0 20 20" width="18" height="18"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M2.5 10h15M10 2.5c2.2 2.1 3.3 4.9 3.3 7.5s-1.1 5.4-3.3 7.5c-2.2-2.1-3.3-4.9-3.3-7.5S7.8 4.6 10 2.5z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>`; }
   function iconShield() { return `<svg viewBox="0 0 20 20" width="18" height="18"><path d="M10 2.5 16.5 5v5c0 4-2.8 6.7-6.5 7.8C6.3 16.7 3.5 14 3.5 10V5z" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linejoin="round"/><path d="M7.2 10 9 11.8l3.6-3.9" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
@@ -69,7 +55,7 @@
   function iconUsb() { return `<svg viewBox="0 0 20 20" width="18" height="18"><path d="M10 2.5v6M7.5 5 10 2.5 12.5 5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="13.5" r="3.2" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M10 8.5v2" stroke="currentColor" stroke-width="1.3"/></svg>`; }
 
   /* ------------------------------------------------------------------ */
-  /* DOM refs                                                            */
+  /* DOM elements                                                       */
   /* ------------------------------------------------------------------ */
   const appShell = document.getElementById("appShell");
   const collapseBtn = document.getElementById("collapseBtn");
@@ -85,6 +71,8 @@
   const simulateBtn = document.getElementById("simulateBtn");
   const stateDotBtns = document.querySelectorAll(".state-dot-btn");
 
+  const micStatusValue = document.getElementById("micStatusValue");
+  const deviceSelect = document.getElementById("deviceSelect");
   const vuMeter = document.getElementById("vuMeter");
   const muteBtn = document.getElementById("muteBtn");
   const testMicBtn = document.getElementById("testMicBtn");
@@ -93,6 +81,7 @@
   const recentList = document.getElementById("recentList");
   const commandTable = document.getElementById("commandTable");
   const filterTabs = document.getElementById("filterTabs");
+  const commandSearchInput = document.getElementById("commandSearchInput");
 
   const quickGridHome = document.getElementById("quickGridHome");
   const quickGridFull = document.getElementById("quickGridFull");
@@ -117,7 +106,18 @@
   const lastCommandValue = document.getElementById("lastCommandValue");
 
   /* ------------------------------------------------------------------ */
-  /* Sidebar: collapse + navigation                                     */
+  /* Real Instances                                                      */
+  /* ------------------------------------------------------------------ */
+  const audioEngine = new AudioEngine();
+  const sttEngine = typeof WebSpeechEngine !== 'undefined' ? new WebSpeechEngine() : new LocalSpeechEngine();
+  const wakeWordEngine = new WakeWordEngine("Nexus", true);
+
+  let currentState = "idle";
+  let currentRmsLevel = 0;
+  let activePendingActionId = null;
+
+  /* ------------------------------------------------------------------ */
+  /* Sidebar Navigation                                                 */
   /* ------------------------------------------------------------------ */
   collapseBtn.addEventListener("click", () => {
     appShell.classList.toggle("is-collapsed");
@@ -133,13 +133,13 @@
   });
 
   /* ------------------------------------------------------------------ */
-  /* Orb visualizer: circular bar equalizer                             */
+  /* Real Visualizer & Orb Setup                                         */
   /* ------------------------------------------------------------------ */
   const BAR_COUNT = 40;
-  const ORB_RADIUS = 105; // matches transform-origin in CSS
   const barEls = [];
 
   function buildOrbBars() {
+    orbBarsEl.innerHTML = "";
     for (let i = 0; i < BAR_COUNT; i++) {
       const angle = (360 / BAR_COUNT) * i;
       const bar = document.createElement("div");
@@ -152,95 +152,8 @@
   }
   buildOrbBars();
 
-  let currentState = "idle";
-  let orbAnimHandle = null;
-
-  function setOrbState(state) {
-    currentState = state;
-    orbWrap.dataset.state = state;
-    orbStateLabel.textContent = STATE_LABELS[state];
-    orbStateLabel.style.color = `var(${STATE_COLOR_VAR[state]})`;
-
-    // Sync mini mode
-    miniStateLabel.textContent = STATE_LABELS[state];
-    miniOrbDot.style.background = `var(${STATE_COLOR_VAR[state]})`;
-    miniOrbDot.style.boxShadow = `0 0 0 4px color-mix(in srgb, var(${STATE_COLOR_VAR[state]}) 25%, transparent)`;
-  }
-
-  function animateOrbBars() {
-    barEls.forEach((bar) => {
-      let h = 6;
-      if (currentState === "listening") h = 6 + Math.random() * 34;
-      else if (currentState === "understanding") h = 6 + Math.random() * 16;
-      else if (currentState === "executing") h = 6 + Math.random() * 24;
-      else if (currentState === "success" || currentState === "error") h = 6;
-      else h = 5 + Math.sin(Date.now() / 500) * 2;
-      bar.style.height = h.toFixed(1) + "px";
-    });
-    orbAnimHandle = requestAnimationFrame(throttledAnimate);
-  }
-  let lastFrame = 0;
-  function throttledAnimate(t) {
-    if (t - lastFrame > 70) { lastFrame = t; animateOrbBars(); }
-    else { orbAnimHandle = requestAnimationFrame(throttledAnimate); }
-  }
-  throttledAnimate(0);
-
-  /* Manual state buttons */
-  stateDotBtns.forEach((btn) => {
-    btn.addEventListener("click", () => setOrbState(btn.dataset.state));
-  });
-
-  /* ------------------------------------------------------------------ */
-  /* Simulated wake word -> command flow (scripted demo sequence)       */
-  /* ------------------------------------------------------------------ */
-  let demoRunning = false;
-  function runSimulation() {
-    if (demoRunning) return;
-    demoRunning = true;
-    simulateBtn.disabled = true;
-
-    transcriptBadge.textContent = "";
-    transcriptYouText.textContent = "—";
-    transcriptResponseText.textContent = "Listening…";
-
-    setOrbState("listening");
-
-    setTimeout(() => {
-      transcriptYouText.textContent = "Nexus, abre ShieldPort";
-      setOrbState("understanding");
-      transcriptResponseText.textContent = "Interpreting command…";
-    }, 1400);
-
-    setTimeout(() => {
-      setOrbState("executing");
-      transcriptResponseText.textContent = "Opening ShieldPort…";
-    }, 2600);
-
-    setTimeout(() => {
-      setOrbState("success");
-      transcriptResponseText.textContent = "Opened ShieldPort";
-      transcriptBadge.textContent = "✓";
-      addRecentCommand({ time: nowStamp(), text: "Nexus, abre ShieldPort", status: "success" });
-    }, 3800);
-
-    setTimeout(() => {
-      setOrbState("idle");
-      demoRunning = false;
-      simulateBtn.disabled = false;
-    }, 5600);
-  }
-  simulateBtn.addEventListener("click", runSimulation);
-
-  function nowStamp() {
-    const d = new Date();
-    return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, "0")).join(":");
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Audio panel: VU meter + mute + test mic                            */
-  /* ------------------------------------------------------------------ */
   const VU_BARS = 28;
+  vuMeter.innerHTML = "";
   for (let i = 0; i < VU_BARS; i++) {
     const b = document.createElement("div");
     b.className = "vu-bar";
@@ -248,82 +161,315 @@
     vuMeter.appendChild(b);
   }
   const vuBarEls = vuMeter.querySelectorAll(".vu-bar");
-  let micMuted = false;
 
-  function animateVU() {
-    vuBarEls.forEach((b, i) => {
-      let h = 4;
-      if (!micMuted) {
-        const wave = Math.sin(Date.now() / 220 + i) * 0.5 + 0.5;
-        h = 4 + wave * 34 * (0.4 + Math.random() * 0.6);
-      }
-      b.style.height = h.toFixed(1) + "px";
-    });
-    requestAnimationFrame(animateVU);
+  const MINI_BAR_COUNT = 22;
+  miniBarsEl.innerHTML = "";
+  for (let i = 0; i < MINI_BAR_COUNT; i++) {
+    const b = document.createElement("div");
+    b.className = "mini-bar";
+    b.style.height = "4px";
+    miniBarsEl.appendChild(b);
   }
-  animateVU();
+  const miniBarEls = miniBarsEl.querySelectorAll(".mini-bar");
 
-  muteBtn.addEventListener("click", () => {
-    micMuted = !micMuted;
-    audioPanel.classList.toggle("is-muted", micMuted);
-    muteBtn.classList.toggle("btn-danger-ghost", micMuted);
-    muteBtn.querySelector("svg").style.opacity = micMuted ? 0.5 : 1;
-    muteBtn.lastChild.textContent = micMuted ? " Unmute" : " Mute";
+  function setOrbState(state) {
+    currentState = state;
+    orbWrap.dataset.state = state;
+    orbStateLabel.textContent = STATE_LABELS[state] || state.toUpperCase();
+    orbStateLabel.style.color = `var(${STATE_COLOR_VAR[state] || "--c-idle"})`;
+
+    miniStateLabel.textContent = STATE_LABELS[state] || state.toUpperCase();
+    miniOrbDot.style.background = `var(${STATE_COLOR_VAR[state] || "--c-idle"})`;
+    miniOrbDot.style.boxShadow = `0 0 0 4px color-mix(in srgb, var(${STATE_COLOR_VAR[state] || "--c-idle"}) 25%, transparent)`;
+  }
+
+  // Update visualizers based on REAL RMS audio level
+  audioEngine.onAudioLevel((levelPercent, rms) => {
+    currentRmsLevel = levelPercent;
+
+    // Update VU meter bars
+    const activeCount = Math.round((levelPercent / 100) * VU_BARS);
+    vuBarEls.forEach((bar, idx) => {
+      bar.style.height = idx < activeCount ? `${Math.max(4, (idx + 1) * 1.5)}px` : "4px";
+      bar.style.opacity = idx < activeCount ? "1" : "0.3";
+    });
+
+    // Update Orb bars
+    barEls.forEach((bar, idx) => {
+      let h = 6;
+      if (currentState === "listening" || currentState === "understanding") {
+        h = 6 + (levelPercent * 0.4) * (0.8 + Math.sin(idx + Date.now() / 100) * 0.2);
+      } else {
+        h = 6 + (levelPercent * 0.15);
+      }
+      bar.style.height = `${Math.min(40, Math.max(6, h)).toFixed(1)}px`;
+    });
+
+    // Update Mini bars
+    miniBarEls.forEach((bar, idx) => {
+      const h = 4 + (levelPercent * 0.2);
+      bar.style.height = `${Math.min(24, Math.max(4, h)).toFixed(1)}px`;
+      bar.style.background = `var(${STATE_COLOR_VAR[currentState] || "--c-idle"})`;
+    });
   });
 
-  testMicBtn.addEventListener("click", () => {
+  // Manual state dots (for quick state inspection)
+  stateDotBtns.forEach((btn) => {
+    btn.addEventListener("click", () => setOrbState(btn.dataset.state));
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Real Audio Device Setup                                             */
+  /* ------------------------------------------------------------------ */
+  async function initAudioDevices() {
+    const devices = await audioEngine.getAudioDevices();
+    deviceSelect.innerHTML = "";
+
+    if (devices.length === 0) {
+      deviceSelect.innerHTML = `<option value="">No microphones found</option>`;
+      updateMicStatus(false, "DISCONNECTED");
+      return;
+    }
+
+    devices.forEach((dev) => {
+      const opt = document.createElement("option");
+      opt.value = dev.deviceId;
+      opt.textContent = dev.label + (dev.isDJI ? " (DJI Mic Mini)" : "");
+      deviceSelect.appendChild(opt);
+    });
+
+    // Auto-select DJI Mic Mini if present
+    const selectedId = audioEngine.autoSelectDJIMic(devices);
+    if (selectedId) {
+      deviceSelect.value = selectedId;
+      const res = await audioEngine.selectDevice(selectedId);
+      if (res.success) {
+        document.querySelector(".device-name").textContent = res.label;
+        updateMicStatus(true, "CONNECTED");
+      } else {
+        updateMicStatus(false, res.error === "NotAllowedError" ? "PERMISSION DENIED" : "DISCONNECTED");
+      }
+    }
+  }
+
+  deviceSelect.addEventListener("change", async () => {
+    const devId = deviceSelect.value;
+    if (!devId) return;
+    const res = await audioEngine.selectDevice(devId);
+    if (res.success) {
+      document.querySelector(".device-name").textContent = res.label;
+      updateMicStatus(true, "CONNECTED");
+    } else {
+      updateMicStatus(false, "DISCONNECTED");
+    }
+  });
+
+  audioEngine.onDeviceChange(async () => {
+    await initAudioDevices();
+  });
+
+  audioEngine.onStatusChange((isConnected, labelText) => {
+    updateMicStatus(isConnected, labelText);
+  });
+
+  function updateMicStatus(isConnected, labelText) {
+    micStatusValue.textContent = labelText || (isConnected ? "CONNECTED" : "DISCONNECTED");
+    micStatusValue.previousElementSibling.className = "status-chip-label";
+    
+    const pill = audioPanel.querySelector(".pill");
+    if (pill) {
+      pill.textContent = isConnected ? "CONNECTED" : "DISCONNECTED";
+      pill.className = isConnected ? "pill pill-success" : "pill pill-neutral";
+    }
+  }
+
+  muteBtn.addEventListener("click", () => {
+    const muted = audioEngine.toggleMute();
+    audioPanel.classList.toggle("is-muted", muted);
+    muteBtn.classList.toggle("btn-danger-ghost", muted);
+    muteBtn.lastChild.textContent = muted ? " Unmute" : " Mute";
+  });
+
+  testMicBtn.addEventListener("click", async () => {
     if (testMicBtn.dataset.busy) return;
     testMicBtn.dataset.busy = "1";
     const original = testMicBtn.innerHTML;
-    testMicBtn.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4" fill="none"/></svg> Testing…`;
-    setTimeout(() => {
-      testMicBtn.innerHTML = original;
-      delete testMicBtn.dataset.busy;
-    }, 1800);
+    testMicBtn.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4" fill="none"/></svg> Testing (3s)…`;
+    
+    const res = await audioEngine.testMicrophone(3, (progress, level) => {
+      transcriptResponseText.textContent = `Testing microphone... ${Math.round(progress * 100)}%`;
+    });
+
+    testMicBtn.innerHTML = original;
+    delete testMicBtn.dataset.busy;
+
+    if (res.passed) {
+      transcriptResponseText.textContent = `Microphone test PASSED (Max level: ${Math.round(res.maxRms * 100)}%)`;
+      transcriptBadge.textContent = "✓";
+    } else {
+      transcriptResponseText.textContent = `Microphone test LOW SIGNAL or SILENT`;
+      transcriptBadge.textContent = "⚠";
+    }
   });
 
   /* ------------------------------------------------------------------ */
-  /* Recent commands (home) + full command table                        */
+  /* Real STT & Pipeline Integration                                    */
+  /* ------------------------------------------------------------------ */
+  async function initSpeechEngine() {
+    if (!sttEngine.isAvailable()) {
+      transcriptResponseText.textContent = "SPEECH RECOGNITION UNAVAILABLE (Chromium WebSpeech disabled)";
+      return;
+    }
+
+    const ok = await sttEngine.init();
+    if (!ok) {
+      transcriptResponseText.textContent = "SPEECH RECOGNITION UNAVAILABLE";
+      return;
+    }
+
+    sttEngine.onResult((transcript, isFinal) => {
+      transcriptYouText.textContent = `"${transcript}"`;
+
+      if (currentState === "idle" || currentState === "listening") {
+        const wakeRes = wakeWordEngine.processTranscript(transcript);
+        if (wakeRes.detected) {
+          setOrbState("understanding");
+          transcriptResponseText.textContent = "Wake word detected! Interpreting command…";
+          
+          if (wakeRes.payloadText && isFinal) {
+            executeRecognizedCommand(wakeRes.payloadText);
+          }
+        }
+      } else if (isFinal && currentState === "understanding") {
+        executeRecognizedCommand(transcript);
+      }
+    });
+
+    sttEngine.onError((err) => {
+      console.warn("[STT UI Error]", err);
+      if (err.code === "STT_UNAVAILABLE") {
+        transcriptResponseText.textContent = "SPEECH RECOGNITION UNAVAILABLE";
+      }
+    });
+
+    sttEngine.start();
+  }
+
+  async function executeRecognizedCommand(commandText) {
+    setOrbState("executing");
+    transcriptResponseText.textContent = `Executing: "${commandText}"...`;
+
+    try {
+      const response = await window.nexusAPI.executeVoiceIntent(commandText);
+      const { result } = response;
+
+      if (result.status === "CONFIRMATION_REQUIRED") {
+        setOrbState("understanding");
+        openConfirmModal(response);
+        return;
+      }
+
+      if (result.success) {
+        setOrbState("success");
+        transcriptResponseText.textContent = result.message || "Command executed successfully";
+        transcriptBadge.textContent = "✓";
+      } else {
+        setOrbState("error");
+        transcriptResponseText.textContent = `Error: ${result.message || result.error || "Command failed"}`;
+        transcriptBadge.textContent = "✕";
+      }
+    } catch (err) {
+      setOrbState("error");
+      transcriptResponseText.textContent = `IPC Error: ${err.message}`;
+      transcriptBadge.textContent = "✕";
+    }
+
+    await refreshHistory();
+
+    setTimeout(() => {
+      setOrbState("idle");
+      transcriptResponseText.textContent = "Waiting for wake word…";
+      transcriptBadge.textContent = "";
+    }, 4000);
+  }
+
+  // Simulation button triggers real pipeline execution
+  simulateBtn.addEventListener("click", () => {
+    executeRecognizedCommand("Nexus, abre ShieldPort");
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Real Command History & Command Center                              */
   /* ------------------------------------------------------------------ */
   function badgeHtml(status) {
-    const s = STATUS_BADGE[status];
+    const s = STATUS_BADGE[status] || STATUS_BADGE.failed;
     return `<span class="cmd-status-badge ${s.cls}">${s.icon} ${s.label}</span>`;
   }
 
-  function renderRecentList() {
+  async function refreshHistory() {
+    if (!window.nexusAPI || !window.nexusAPI.getHistory) return;
+    
+    const filter = getActiveFilter();
+    const historyList = await window.nexusAPI.getHistory(filter);
+    
+    renderRecentList(historyList);
+    renderCommandTable(historyList);
+
+    // Update dashboard counters
+    const today = new Date().toISOString().split("T")[0];
+    const todayCount = historyList.filter((item) => item.timestamp && item.timestamp.startsWith(today)).length;
+    commandsTodayValue.textContent = String(todayCount);
+
+    if (historyList.length > 0) {
+      lastCommandValue.textContent = historyList[historyList.length - 1].time || "just now";
+    }
+  }
+
+  function renderRecentList(list) {
     recentList.innerHTML = "";
-    COMMAND_HISTORY.slice(-3).reverse().forEach((c) => {
+    const recent = list.slice(-3).reverse();
+    if (recent.length === 0) {
+      recentList.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text-tertiary);font-size:13px;">No commands recorded yet.</div>`;
+      return;
+    }
+
+    recent.forEach((c) => {
       const row = document.createElement("div");
       row.className = "recent-item";
       row.innerHTML = `
-        <span class="recent-time mono">${c.time}</span>
-        <span class="recent-cmd">${c.text}</span>
-        <span class="recent-status">${STATUS_BADGE[c.status].icon}</span>
+        <span class="recent-time mono">${c.time || ""}</span>
+        <span class="recent-cmd">${c.transcript || c.text || ""}</span>
+        <span class="recent-status">${(STATUS_BADGE[c.status] || STATUS_BADGE.failed).icon}</span>
       `;
       recentList.appendChild(row);
     });
   }
 
-  function renderCommandTable(filter) {
+  function renderCommandTable(list) {
     commandTable.innerHTML = "";
-    const list = COMMAND_HISTORY.slice().reverse().filter((c) => {
-      if (!filter || filter === "all") return true;
-      return c.status === filter;
+    const searchTerm = (commandSearchInput.value || "").toLowerCase().trim();
+
+    const filtered = list.filter((c) => {
+      if (!searchTerm) return true;
+      const text = (c.transcript || c.text || "").toLowerCase();
+      const intent = (c.intent || "").toLowerCase();
+      const sub = (c.subText || "").toLowerCase();
+      return text.includes(searchTerm) || intent.includes(searchTerm) || sub.includes(searchTerm);
     });
 
-    if (list.length === 0) {
-      commandTable.innerHTML = `<div style="padding:32px 8px;text-align:center;color:var(--text-tertiary);font-size:13px;">No commands match this filter.</div>`;
+    if (filtered.length === 0) {
+      commandTable.innerHTML = `<div style="padding:32px 8px;text-align:center;color:var(--text-tertiary);font-size:13px;">No commands match this filter/search.</div>`;
       return;
     }
 
-    list.forEach((c) => {
+    filtered.slice().reverse().forEach((c) => {
       const row = document.createElement("div");
       row.className = "command-row" + (c.status === "confirm" ? " is-clickable" : "");
       row.innerHTML = `
-        <span class="cmd-time mono">${c.time}</span>
+        <span class="cmd-time mono">${c.time || ""}</span>
         <div>
-          <div class="cmd-text">"${c.text}"</div>
-          ${c.sub ? `<div class="cmd-text-sub mono">${c.sub}</div>` : ""}
+          <div class="cmd-text">"${c.transcript || c.text || ""}"</div>
+          ${c.subText ? `<div class="cmd-text-sub mono">${c.subText}</div>` : ""}
         </div>
         ${badgeHtml(c.status)}
         <span class="cmd-chevron">${c.status === "confirm" ? "›" : ""}</span>
@@ -333,14 +479,6 @@
       }
       commandTable.appendChild(row);
     });
-  }
-
-  function addRecentCommand(entry) {
-    COMMAND_HISTORY.push(entry);
-    renderRecentList();
-    renderCommandTable(getActiveFilter());
-    lastCommandValue.textContent = "just now";
-    commandsTodayValue.textContent = String(Number(commandsTodayValue.textContent) + 1);
   }
 
   function getActiveFilter() {
@@ -353,14 +491,15 @@
     if (!btn) return;
     filterTabs.querySelectorAll(".filter-tab").forEach((b) => b.classList.remove("is-active"));
     btn.classList.add("is-active");
-    renderCommandTable(btn.dataset.filter);
+    refreshHistory();
   });
 
-  renderRecentList();
-  renderCommandTable("all");
+  commandSearchInput.addEventListener("input", () => {
+    refreshHistory();
+  });
 
   /* ------------------------------------------------------------------ */
-  /* Quick actions grids                                                */
+  /* Real Quick Actions Grid                                             */
   /* ------------------------------------------------------------------ */
   function renderQuickGrid(container) {
     container.innerHTML = "";
@@ -368,13 +507,16 @@
       const tile = document.createElement("button");
       tile.className = "quick-tile";
       tile.innerHTML = `<span class="quick-tile-icon">${a.icon}</span><span class="quick-tile-label">${a.label}</span>`;
-      tile.addEventListener("click", () => {
-        if (a.label === "Delete Backup folder") return; // n/a, placeholder guard
+      tile.addEventListener("click", async () => {
         flashTileFeedback(tile);
+        if (a.intent) {
+          executeRecognizedCommand(`Nexus ${a.label}`);
+        }
       });
       container.appendChild(tile);
     });
   }
+
   function flashTileFeedback(tile) {
     tile.style.borderColor = "rgba(61,220,151,0.5)";
     tile.style.color = "var(--c-success)";
@@ -384,7 +526,7 @@
   renderQuickGrid(quickGridFull);
 
   /* ------------------------------------------------------------------ */
-  /* Settings tabs                                                      */
+  /* Real Settings Integration                                          */
   /* ------------------------------------------------------------------ */
   settingsTabs.addEventListener("click", (e) => {
     const btn = e.target.closest(".settings-tab");
@@ -395,69 +537,135 @@
     document.getElementById("pane-" + btn.dataset.stab).classList.add("is-active");
   });
 
+  async function loadSettingsUI() {
+    if (!window.nexusAPI || !window.nexusAPI.getSettings) return;
+    const settings = await window.nexusAPI.getSettings();
+
+    // General pane
+    const startWindowsCb = document.querySelector('#pane-general input[type="checkbox"]:nth-of-type(1)');
+    const startMinCb = document.querySelectorAll('#pane-general input[type="checkbox"]')[1];
+    const trayModeCb = document.querySelectorAll('#pane-general input[type="checkbox"]')[2];
+
+    if (startWindowsCb) startWindowsCb.checked = Boolean(settings.startWithWindows);
+    if (startMinCb) startMinCb.checked = Boolean(settings.startMinimized);
+    if (trayModeCb) trayModeCb.checked = Boolean(settings.systemTrayMode);
+
+    // Voice pane
+    const wakeWordInput = document.querySelector('#pane-voice input[type="text"]');
+    const wakeWordCb = document.querySelector('#pane-voice input[type="checkbox"]');
+    const langSelect = document.querySelector('#pane-voice select');
+
+    if (wakeWordInput) {
+      wakeWordInput.value = settings.wakeWord || "Nexus";
+      wakeWordEngine.setWakeWord(settings.wakeWord || "Nexus");
+    }
+    if (wakeWordCb) {
+      wakeWordCb.checked = Boolean(settings.wakeWordEnabled);
+      wakeWordEngine.setEnabled(Boolean(settings.wakeWordEnabled));
+    }
+    if (langSelect) {
+      langSelect.value = settings.recognitionLanguage === "en-US" ? "English" : "Español";
+    }
+
+    // Attach real change listeners to save settings
+    bindSettingChange(startWindowsCb, "startWithWindows");
+    bindSettingChange(startMinCb, "startMinimized");
+    bindSettingChange(trayModeCb, "systemTrayMode");
+
+    if (wakeWordInput) {
+      wakeWordInput.addEventListener("change", () => {
+        const val = wakeWordInput.value.trim() || "Nexus";
+        wakeWordEngine.setWakeWord(val);
+        window.nexusAPI.updateSettings({ wakeWord: val });
+      });
+    }
+    if (wakeWordCb) {
+      wakeWordCb.addEventListener("change", () => {
+        const enabled = wakeWordCb.checked;
+        wakeWordEngine.setEnabled(enabled);
+        window.nexusAPI.updateSettings({ wakeWordEnabled: enabled });
+      });
+    }
+  }
+
+  function bindSettingChange(element, key) {
+    if (!element) return;
+    element.addEventListener("change", () => {
+      const val = element.type === "checkbox" ? element.checked : element.value;
+      window.nexusAPI.updateSettings({ [key]: val });
+    });
+  }
+
   /* ------------------------------------------------------------------ */
-  /* Confirmation modal                                                 */
+  /* Confirmation Modal                                                 */
   /* ------------------------------------------------------------------ */
-  function openConfirmModal(entry) {
-    confirmTitle.textContent = entry.text.replace(/^Nexus,\s*/i, "").replace(/^delete\s*/i, "Delete: ");
-    confirmTarget.textContent = entry.sub || "—";
+  function openConfirmModal(intentResponse) {
+    activePendingActionId = intentResponse.actionId || Date.now().toString();
+    confirmTitle.textContent = intentResponse.intent || "Sensitive Operation";
+    confirmTarget.textContent = JSON.stringify(intentResponse.parameters || {});
     modalBackdrop.classList.add("is-open");
   }
   function closeConfirmModal() { modalBackdrop.classList.remove("is-open"); }
 
-  confirmCancelBtn.addEventListener("click", closeConfirmModal);
+  confirmCancelBtn.addEventListener("click", () => {
+    closeConfirmModal();
+    if (activePendingActionId && window.nexusAPI.confirmSensitiveAction) {
+      window.nexusAPI.confirmSensitiveAction(activePendingActionId, false);
+    }
+    setOrbState("idle");
+  });
   modalBackdrop.addEventListener("click", (e) => { if (e.target === modalBackdrop) closeConfirmModal(); });
-  confirmOkBtn.addEventListener("click", () => {
+  confirmOkBtn.addEventListener("click", async () => {
     closeConfirmModal();
     setOrbState("executing");
-    setTimeout(() => setOrbState("success"), 900);
-    setTimeout(() => setOrbState("idle"), 2200);
+    if (activePendingActionId && window.nexusAPI.confirmSensitiveAction) {
+      await window.nexusAPI.confirmSensitiveAction(activePendingActionId, true);
+    }
+    setOrbState("success");
+    setTimeout(() => setOrbState("idle"), 2000);
   });
 
   /* ------------------------------------------------------------------ */
-  /* Mini mode                                                          */
+  /* Real Mini Mode & System Tray                                       */
   /* ------------------------------------------------------------------ */
-  const MINI_BAR_COUNT = 22;
-  for (let i = 0; i < MINI_BAR_COUNT; i++) {
-    const b = document.createElement("div");
-    b.className = "mini-bar";
-    b.style.height = "4px";
-    miniBarsEl.appendChild(b);
-  }
-  const miniBarEls = miniBarsEl.querySelectorAll(".mini-bar");
-  function animateMiniBars() {
-    miniBarEls.forEach((b) => {
-      let h = 4;
-      if (currentState === "listening") h = 4 + Math.random() * 20;
-      else if (currentState === "executing") h = 4 + Math.random() * 14;
-      b.style.background = `var(${STATE_COLOR_VAR[currentState]})`;
-      b.style.height = h.toFixed(1) + "px";
-    });
-    requestAnimationFrame(animateMiniBars);
-  }
-  animateMiniBars();
-
-  miniModeBtn.addEventListener("click", () => {
+  miniModeBtn.addEventListener("click", async () => {
     miniMode.classList.add("is-visible");
     appShell.style.display = "none";
     document.querySelector(".demo-banner").style.display = "none";
     document.body.classList.add("mini-active");
+    if (window.nexusAPI && window.nexusAPI.toggleMiniMode) {
+      await window.nexusAPI.toggleMiniMode(true);
+    }
   });
-  miniExpandBtn.addEventListener("click", () => {
+
+  miniExpandBtn.addEventListener("click", async () => {
     miniMode.classList.remove("is-visible");
     appShell.style.display = "";
     document.querySelector(".demo-banner").style.display = "";
     document.body.classList.remove("mini-active");
+    if (window.nexusAPI && window.nexusAPI.toggleMiniMode) {
+      await window.nexusAPI.toggleMiniMode(false);
+    }
   });
 
-  /* keep mini transcript loosely synced with main transcript on simulation */
-  const observer = new MutationObserver(() => {
-    miniTranscript.textContent = transcriptResponseText.textContent;
-  });
-  observer.observe(transcriptResponseText, { childList: true, characterData: true, subtree: true });
+  if (window.nexusAPI && window.nexusAPI.onSystemTrayAction) {
+    window.nexusAPI.onSystemTrayAction((action) => {
+      if (action === "toggle-mini-mode") {
+        miniModeBtn.click();
+      }
+    });
+  }
 
   /* ------------------------------------------------------------------ */
-  /* Init                                                                */
+  /* Init Application                                                  */
   /* ------------------------------------------------------------------ */
-  setOrbState("idle");
+  async function init() {
+    setOrbState("idle");
+    await initAudioDevices();
+    await initSpeechEngine();
+    await refreshHistory();
+    await loadSettingsUI();
+  }
+
+  init();
 })();

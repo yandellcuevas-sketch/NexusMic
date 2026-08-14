@@ -54,6 +54,7 @@ test('StorageManager — Settings & History persistence', async (t) => {
     storage.configPath = path.join(tmpDir, 'config.json');
     storage.historyPath = path.join(tmpDir, 'history.json');
     storage.ensureDirectoryExists(tmpDir);
+    storage.clearHistory();
 
     const entry = storage.addHistoryEntry({
       transcript: 'Nexus, abre Chrome',
