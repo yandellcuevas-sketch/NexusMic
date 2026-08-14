@@ -1,12 +1,15 @@
 {
   "name": "nexus-voice-desktop",
+  "productName": "NEXUS Voice Desktop",
   "version": "0.1.0",
-  "description": "NEXUS Voice Desktop — Windows Voice Control Application",
+  "description": "Desktop voice assistant for Windows with secure local command routing.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "test": "node --test tests/ipc-security.test.js tests/store.test.js tests/audio-engine.test.js tests/stt-wakeword.test.js tests/command-router.test.js tests/integration-ui.test.js"
+    "test": "node --test tests/ipc-security.test.js tests/store.test.js tests/audio-engine.test.js tests/stt-wakeword.test.js tests/command-router.test.js tests/integration-ui.test.js",
+    "build": "npx @electron/packager . \"NEXUS Voice Desktop\" --platform=win32 --arch=x64 --out=dist --overwrite",
+    "dist": "npx electron-builder --win nsis"
   },
   "keywords": [
     "voice",
@@ -18,6 +21,44 @@
   "author": "NEXUS Team",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^31.7.7"
+    "@electron/packager": "^20.3.0",
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.nexus.voicedesktop",
+    "productName": "NEXUS Voice Desktop",
+    "copyright": "Copyright © 2026 NEXUS Team",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "css/**/*",
+      "js/**/*",
+      "src/**/*",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "sign": null,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "perMachine": false
+    }
   }
 }
