@@ -58,7 +58,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "perMachine": false
+      "perMachine": false,
+      "differentialPackage": false,
+      "artifactName": "NEXUS Voice Desktop Setup 0.1.0.exe"
     }
   }
 }
