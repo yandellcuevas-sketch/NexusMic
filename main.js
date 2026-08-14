@@ -1,6 +1,8 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const StorageManager = require('./src/store');
+const IntentParser = require('./src/intent-parser');
+const CommandRouter = require('./src/command-router');
 
 // Enforce Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -175,11 +177,43 @@ function setupIPCHandlers() {
     return true;
   });
 
-  // Placeholder handler for command execution (connected in Fase 4)
-  ipcMain.handle('nexus:execute-intent', async (event, intentPayload) => {
+  // Real Command Execution Pipeline (Fase 4)
+  ipcMain.handle('nexus:execute-intent', async (event, payload) => {
     validateSender(event);
-    console.log('[NEXUS Main] Intent received:', intentPayload);
-    return { status: 'DEFERRED_TO_FASE_4', intentPayload };
+    const startTime = Date.now();
+    let intentObj;
+
+    if (typeof payload === 'string') {
+      intentObj = IntentParser.parse(payload);
+    } else if (typeof payload === 'object' && payload !== null) {
+      if (payload.transcript && !payload.intent) {
+        intentObj = IntentParser.parse(payload.transcript);
+      } else {
+        intentObj = payload;
+      }
+    } else {
+      intentObj = { intent: 'UNKNOWN_INTENT', raw: String(payload), parameters: {} };
+    }
+
+    const result = await CommandRouter.route(intentObj);
+    const durationMs = Date.now() - startTime;
+
+    const historyStatus = result.success ? 'success' : (result.status === 'CONFIRMATION_REQUIRED' ? 'confirm' : 'failed');
+    
+    storage.addHistoryEntry({
+      transcript: intentObj.raw || payload.transcript || intentObj.intent,
+      intent: intentObj.intent,
+      status: historyStatus,
+      subText: result.message || result.error || null,
+      durationMs,
+      error: result.error || null
+    });
+
+    return {
+      intent: intentObj.intent,
+      parameters: intentObj.parameters,
+      result
+    };
   });
 
   ipcMain.handle('nexus:confirm-action', async (event, payload) => {
