@@ -347,8 +347,19 @@
 
     sttEngine.onError((err) => {
       console.warn("[STT UI Error]", err);
+      // 'network' and 'service-not-allowed' are expected in Electron (no embedded Google API key).
+      // The recognition engine will auto-restart via onend. Show nothing to the user.
+      if (err.code === "network" || err.code === "service-not-allowed") {
+        return; // Silently restart — onend handler handles it
+      }
       if (err.code === "STT_UNAVAILABLE") {
-        transcriptResponseText.textContent = "SPEECH RECOGNITION UNAVAILABLE";
+        transcriptResponseText.textContent = "SPEECH RECOGNITION UNAVAILABLE (Chromium WebSpeech disabled)";
+      } else if (err.code === "not-allowed") {
+        transcriptResponseText.textContent = "STT Error: Permiso de micrófono denegado";
+      } else if (err.code === "audio-capture") {
+        transcriptResponseText.textContent = "STT Error: No se puede acceder al micrófono";
+      } else {
+        console.warn("[STT] Unhandled error:", err.code);
       }
     });
 

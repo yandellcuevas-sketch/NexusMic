@@ -51,7 +51,7 @@ function createWindow() {
     minHeight: 600,
     title: 'NEXUS Voice Desktop',
     backgroundColor: '#07090E',
-    show: !settings.startMinimized,
+    show: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -305,6 +305,11 @@ app.whenReady().then(() => {
 
   const settings = storage.getSettings();
   updateAutoLaunch(settings.startWithWindows);
+
+  if (!process.argv.includes('--hidden')) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
