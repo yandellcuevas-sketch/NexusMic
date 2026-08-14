@@ -360,7 +360,9 @@
     transcriptResponseText.textContent = `Executing: "${commandText}"...`;
 
     try {
-      const response = await window.nexusAPI.executeVoiceIntent(commandText);
+      // Wrap the text transcript into an object payload so preload validation passes.
+      // main.js detects { transcript } and routes it through IntentParser automatically.
+      const response = await window.nexusAPI.executeVoiceIntent({ transcript: commandText });
       const { result } = response;
 
       if (result.status === "CONFIRMATION_REQUIRED") {
@@ -509,8 +511,37 @@
       tile.innerHTML = `<span class="quick-tile-icon">${a.icon}</span><span class="quick-tile-label">${a.label}</span>`;
       tile.addEventListener("click", async () => {
         flashTileFeedback(tile);
-        if (a.intent) {
-          executeRecognizedCommand(`Nexus ${a.label}`);
+        if (!a.intent) return;
+
+        // Dispatch directly by intent — bypasses the Spanish-only text parser.
+        setOrbState("executing");
+        transcriptYouText.textContent = `"${a.label}"`;
+        transcriptResponseText.textContent = `Executing: ${a.label}\u2026`;
+        transcriptBadge.textContent = "";
+
+        try {
+          const intentPayload = { intent: a.intent, parameters: a.params || {} };
+          const response = await window.nexusAPI.executeVoiceIntent(intentPayload);
+          const { result } = response;
+
+          if (result.success) {
+            setOrbState("success");
+            transcriptResponseText.textContent = result.message || "Done";
+            transcriptBadge.textContent = "\u2713";
+          } else {
+            setOrbState("error");
+            transcriptResponseText.textContent = result.message || result.error || "Command failed";
+            transcriptBadge.textContent = "\u2715";
+          }
+          await refreshHistory();
+          setTimeout(() => {
+            setOrbState("idle");
+            transcriptResponseText.textContent = "Waiting for wake word\u2026";
+            transcriptBadge.textContent = "";
+          }, 3000);
+        } catch (err) {
+          setOrbState("error");
+          transcriptResponseText.textContent = `Error: ${err.message}`;
         }
       });
       container.appendChild(tile);
@@ -600,8 +631,22 @@
   /* Confirmation Modal                                                 */
   /* ------------------------------------------------------------------ */
   function openConfirmModal(intentResponse) {
-    activePendingActionId = intentResponse.actionId || Date.now().toString();
-    confirmTitle.textContent = intentResponse.intent || "Sensitive Operation";
+    // Support both response shapes:
+    // 1. IPC result: { intent, parameters, result: { status: 'CONFIRMATION_REQUIRED', actionId } }
+    // 2. History entry: { actionId, intent, transcript, status: 'confirm', ... }
+    const actionId = (intentResponse.result && intentResponse.result.actionId)
+      || intentResponse.actionId
+      || null;
+
+    activePendingActionId = actionId;
+
+    if (!activePendingActionId) {
+      console.warn('[NEXUS Modal] No actionId available — confirm will be a no-op (historical entry or expired action)');
+    }
+
+    confirmTitle.textContent = intentResponse.intent
+      || (intentResponse.result && intentResponse.result.intent)
+      || "Sensitive Operation";
     confirmTarget.textContent = JSON.stringify(intentResponse.parameters || {});
     modalBackdrop.classList.add("is-open");
   }

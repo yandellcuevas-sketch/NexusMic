@@ -213,6 +213,13 @@ class AudioEngine {
       this.microphoneStream.getTracks().forEach((t) => t.stop());
       this.microphoneStream = null;
     }
+    // Close AudioContext to release OS audio resources and prevent memory leaks
+    // on repeated selectDevice() calls (e.g. DJI Mic Mini reconnections).
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(() => {});
+      this.audioContext = null;
+      this.analyser = null;
+    }
   }
 
   onDeviceChange(callback) {

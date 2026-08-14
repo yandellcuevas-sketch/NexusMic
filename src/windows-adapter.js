@@ -80,8 +80,8 @@ class WindowsAdapter {
     }
 
     return new Promise((resolve) => {
-      // Use parameterized PowerShell command for core audio volume
-      const scalarVolume = (numericLevel / 100).toFixed(2);
+      // Use parameterized PowerShell command via WScript.Shell SendKeys:
+      // First mute all volume (50x VolumeDown), then raise to target level (numericLevel/2 steps up).
       const script = `$w=New-Object -ComObject WScript.Shell; 1..50 | % { $w.SendKeys([char]174) }; $count=[math]::Round(${numericLevel}/2); 1..$count | % { $w.SendKeys([char]175) }`;
       
       execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], (err) => {

@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('nexusAPI', {
   },
 
   // Command Router IPC
+  // Accepts: { transcript: string } — routed through IntentParser
+  //      OR: { intent: string, parameters: object } — direct intent dispatch (Quick Actions, etc.)
   executeVoiceIntent: async (intentData) => {
     if (typeof intentData !== 'object' || intentData === null) {
       throw new Error('Invalid intent data structure');
@@ -36,18 +38,14 @@ contextBridge.exposeInMainWorld('nexusAPI', {
     return await ipcRenderer.invoke('nexus:confirm-action', { actionId, confirmed });
   },
 
-  // Dedicated action shortcuts
-  openApplication: async (appName) => {
-    if (typeof appName !== 'string') throw new Error('Invalid application name');
-    return await ipcRenderer.invoke('nexus:execute-intent', { intent: 'OPEN_APP', app: appName });
-  },
+  // Dedicated action shortcuts (kept for external/programmatic use)
   setVolume: async (level) => {
     const numericLevel = Number(level);
     if (isNaN(numericLevel)) throw new Error('Invalid volume level');
-    return await ipcRenderer.invoke('nexus:execute-intent', { intent: 'SET_VOLUME', level: numericLevel });
+    return await ipcRenderer.invoke('nexus:execute-intent', { intent: 'SET_VOLUME', parameters: { level: numericLevel } });
   },
   getUsbDrives: async () => {
-    return await ipcRenderer.invoke('nexus:execute-intent', { intent: 'LIST_USB_DRIVES' });
+    return await ipcRenderer.invoke('nexus:execute-intent', { intent: 'LIST_USB_DRIVES', parameters: {} });
   },
 
   // Window & System Tray IPC

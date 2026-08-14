@@ -7,7 +7,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "test": "node --test tests/ipc-security.test.js tests/store.test.js tests/audio-engine.test.js tests/stt-wakeword.test.js tests/command-router.test.js tests/integration-ui.test.js",
+    "test": "node --test tests/ipc-security.test.js tests/store.test.js tests/audio-engine.test.js tests/stt-wakeword.test.js tests/command-router.test.js tests/integration-ui.test.js tests/pending-actions.test.js",
     "build": "npx @electron/packager . \"NEXUS Voice Desktop\" --platform=win32 --arch=x64 --out=dist --overwrite",
     "dist": "npx electron-builder --win nsis"
   },

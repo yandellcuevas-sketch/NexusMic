@@ -3,6 +3,7 @@ const path = require('path');
 const StorageManager = require('./src/store');
 const IntentParser = require('./src/intent-parser');
 const CommandRouter = require('./src/command-router');
+const PendingActionStore = require('./src/pending-actions');
 
 // Enforce Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -16,6 +17,7 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 const storage = new StorageManager();
+const pendingActions = new PendingActionStore(30000); // Pending confirmations expire after 30s
 
 function createTrayIcon() {
   // Create a 16x16 circular SVG tray icon
@@ -189,19 +191,33 @@ function setupIPCHandlers() {
       if (payload.transcript && !payload.intent) {
         intentObj = IntentParser.parse(payload.transcript);
       } else {
-        intentObj = payload;
+        // Direct intent dispatch (e.g. from Quick Actions or programmatic calls)
+        intentObj = {
+          intent: payload.intent || 'UNKNOWN_INTENT',
+          parameters: payload.parameters || {},
+          raw: payload.raw || payload.intent || ''
+        };
       }
     } else {
       intentObj = { intent: 'UNKNOWN_INTENT', raw: String(payload), parameters: {} };
     }
 
-    const result = await CommandRouter.route(intentObj);
+    let result = await CommandRouter.route(intentObj);
     const durationMs = Date.now() - startTime;
 
-    const historyStatus = result.success ? 'success' : (result.status === 'CONFIRMATION_REQUIRED' ? 'confirm' : 'failed');
-    
+    // If the action requires user confirmation, store it as a pending action
+    // and attach an opaque actionId to the result so the renderer can confirm it.
+    if (result.status === 'CONFIRMATION_REQUIRED') {
+      const actionId = pendingActions.store(intentObj);
+      result = { ...result, actionId };
+    }
+
+    const historyStatus = result.success
+      ? 'success'
+      : (result.status === 'CONFIRMATION_REQUIRED' ? 'confirm' : 'failed');
+
     storage.addHistoryEntry({
-      transcript: intentObj.raw || payload.transcript || intentObj.intent,
+      transcript: intentObj.raw || (typeof payload === 'object' && payload.transcript) || intentObj.intent,
       intent: intentObj.intent,
       status: historyStatus,
       subText: result.message || result.error || null,
@@ -216,9 +232,61 @@ function setupIPCHandlers() {
     };
   });
 
+  // Secure Action Confirmation Handler
+  // Renderer sends { actionId, confirmed: bool }.
+  // actionId is an opaque token — renderer never knows the underlying intent parameters.
   ipcMain.handle('nexus:confirm-action', async (event, payload) => {
     validateSender(event);
-    return { status: 'DEFERRED_TO_FASE_4', payload };
+
+    const { actionId, confirmed } = payload || {};
+
+    if (!actionId || typeof confirmed !== 'boolean') {
+      return {
+        success: false,
+        status: 'INVALID_PAYLOAD',
+        error: 'actionId (string) and confirmed (boolean) are required'
+      };
+    }
+
+    // User cancelled — discard without executing.
+    if (!confirmed) {
+      pendingActions.cancel(actionId);
+      return { success: false, status: 'CANCELLED', message: 'Action cancelled by user' };
+    }
+
+    // Attempt to resolve the pending action (replay protection + expiry check).
+    const resolution = pendingActions.resolve(actionId);
+
+    if (resolution.error) {
+      const errorMessages = {
+        ACTION_NOT_FOUND: 'Pending action not found or already executed',
+        ALREADY_USED: 'Action was already executed (replay protection)',
+        ACTION_EXPIRED: 'Confirmation window expired (30 seconds). Please retry the command.',
+        INVALID_ACTION_ID: 'Invalid action identifier'
+      };
+      return {
+        success: false,
+        status: resolution.error,
+        error: errorMessages[resolution.error] || resolution.error
+      };
+    }
+
+    // Execute the confirmed action via CommandRouter.
+    const startTime = Date.now();
+    const execResult = await CommandRouter.route(resolution.intentObj);
+    const durationMs = Date.now() - startTime;
+
+    // Record the confirmed execution in history.
+    storage.addHistoryEntry({
+      transcript: `[CONFIRMED] ${resolution.intentObj.raw || resolution.intentObj.intent}`,
+      intent: resolution.intentObj.intent,
+      status: execResult.success ? 'success' : 'failed',
+      subText: execResult.message || execResult.error || null,
+      durationMs,
+      error: execResult.error || null
+    });
+
+    return execResult;
   });
 }
 
