@@ -1,0 +1,23 @@
+{
+  "name": "nexus-voice-desktop",
+  "version": "0.1.0",
+  "description": "NEXUS Voice Desktop — Windows Voice Control Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "test": "node --test tests/ipc-security.test.js tests/store.test.js tests/audio-engine.test.js"
+  },
+  "keywords": [
+    "voice",
+    "windows",
+    "desktop",
+    "dji-mic-mini",
+    "nexus"
+  ],
+  "author": "NEXUS Team",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.7.7"
+  }
+}

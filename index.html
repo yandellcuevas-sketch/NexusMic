@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS Voice Desktop — UI Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="demo-banner">
+  <span class="demo-dot"></span>
+  UI/UX PROTOTYPE — todos los datos y acciones son <strong>DEMO / MOCK</strong>. Ninguna función de voz, sistema o backend está implementada todavía.
+</div>
+
+<div class="app-shell" id="appShell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="22" height="22">
+          <circle cx="16" cy="16" r="14" fill="none" stroke="url(#brandGrad)" stroke-width="2"/>
+          <circle cx="16" cy="16" r="4.5" fill="url(#brandGrad)"/>
+          <defs>
+            <linearGradient id="brandGrad" x1="0" y1="0" x2="32" y2="32">
+              <stop offset="0" stop-color="#4C8DFF"/>
+              <stop offset="1" stop-color="#8B7CFF"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <span class="brand-word">NEXUS</span>
+      <button class="sidebar-collapse" id="collapseBtn" title="Collapse sidebar" aria-label="Collapse sidebar">
+        <svg viewBox="0 0 16 16" width="14" height="14"><path d="M10 2L5 8l5 6" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item is-active" data-view="home">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" width="18" height="18"><path d="M3 9.5 10 3l7 6.5M5 8v8h4v-5h2v5h4V8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="nav-label">Home</span>
+      </button>
+      <button class="nav-item" data-view="commands">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" width="18" height="18"><path d="M4 4h12v12H4z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7 8h6M7 11h6M7 14h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="nav-label">Command Center</span>
+      </button>
+      <button class="nav-item" data-view="actions">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" width="18" height="18"><path d="M10 2l2.2 5.6L18 9l-5.8 1.4L10 16l-2.2-5.6L2 9l5.8-1.4z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></span>
+        <span class="nav-label">Quick Actions</span>
+      </button>
+      <button class="nav-item" data-view="settings">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" width="18" height="18"><circle cx="10" cy="10" r="2.6" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.4 4.6l-1.4 1.4M6 12.6l-1.4 1.4M15.4 15.4l-1.4-1.4M6 7.4 4.6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="nav-label">Settings</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="mini-mode-btn" id="miniModeBtn">
+        <span class="nav-icon"><svg viewBox="0 0 20 20" width="16" height="16"><rect x="3" y="3" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M7 16.5h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+        <span class="nav-label">Mini Mode</span>
+      </button>
+      <div class="sidebar-version nav-label">NEXUS v0.1.0 · UI Preview</div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main-area">
+
+    <!-- Status strip (dashboard indicators) -->
+    <header class="status-strip">
+      <div class="status-chip">
+        <span class="status-dot dot-success"></span>
+        <span class="status-chip-label">MICROPHONE</span>
+        <span class="status-chip-value" id="micStatusValue">CONNECTED</span>
+      </div>
+      <div class="status-chip">
+        <span class="status-dot dot-info"></span>
+        <span class="status-chip-label">NEXUS ENGINE</span>
+        <span class="status-chip-value">READY</span>
+      </div>
+      <div class="status-chip">
+        <span class="status-chip-label">COMMANDS TODAY</span>
+        <span class="status-chip-value mono" id="commandsTodayValue">27</span>
+      </div>
+      <div class="status-chip">
+        <span class="status-chip-label">LAST COMMAND</span>
+        <span class="status-chip-value mono" id="lastCommandValue">2 min ago</span>
+      </div>
+      <div class="status-strip-spacer"></div>
+      <div class="status-chip status-chip-lang">
+        <span class="status-chip-value">ES</span>
+      </div>
+    </header>
+
+    <!-- ============ HOME VIEW ============ -->
+    <section class="view is-active" id="view-home">
+      <div class="home-grid">
+
+        <!-- Center: Orb + transcription -->
+        <div class="panel orb-panel">
+          <div class="orb-state-label" id="orbStateLabel">IDLE</div>
+
+          <div class="orb-stage">
+            <div class="orb-wrap" id="orbWrap" data-state="idle">
+              <div class="orb-ring ring-3"></div>
+              <div class="orb-ring ring-2"></div>
+              <div class="orb-ring ring-1"></div>
+              <div class="orb-bars" id="orbBars"></div>
+              <div class="orb-core">
+                <svg viewBox="0 0 40 40" width="34" height="34">
+                  <circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+                  <circle cx="20" cy="20" r="6" fill="currentColor"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="transcript-block">
+            <div class="transcript-row" id="transcriptYou">
+              <span class="transcript-label">YOU SAID</span>
+              <span class="transcript-text mono" id="transcriptYouText">—</span>
+            </div>
+            <div class="transcript-row transcript-response" id="transcriptResponse">
+              <span class="transcript-label">NEXUS</span>
+              <span class="transcript-text mono" id="transcriptResponseText">Waiting for wake word…</span>
+              <span class="transcript-badge" id="transcriptBadge"></span>
+            </div>
+          </div>
+
+          <div class="orb-controls">
+            <button class="btn btn-primary" id="simulateBtn">
+              <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>
+              Simular “Nexus, abre ShieldPort”
+            </button>
+            <div class="state-test-row">
+              <span class="state-test-label">Ver estado:</span>
+              <button class="state-dot-btn" data-state="idle" title="Idle" style="--dot-color:#5B6472"></button>
+              <button class="state-dot-btn" data-state="listening" title="Listening" style="--dot-color:#4C8DFF"></button>
+              <button class="state-dot-btn" data-state="understanding" title="Understanding" style="--dot-color:#8B7CFF"></button>
+              <button class="state-dot-btn" data-state="executing" title="Executing" style="--dot-color:#FFB454"></button>
+              <button class="state-dot-btn" data-state="success" title="Success" style="--dot-color:#3DDC97"></button>
+              <button class="state-dot-btn" data-state="error" title="Error" style="--dot-color:#FF5C6C"></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column: audio panel + recent commands -->
+        <div class="home-side">
+
+          <div class="panel audio-panel">
+            <div class="panel-header">
+              <h3>Audio Input</h3>
+              <span class="pill pill-success">CONNECTED</span>
+            </div>
+
+            <div class="device-row">
+              <div class="device-icon">
+                <svg viewBox="0 0 20 20" width="18" height="18"><rect x="7" y="2" width="6" height="10" rx="3" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M4 9a6 6 0 0012 0M10 15v3M7 18h6" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+              </div>
+              <div class="device-info">
+                <div class="device-name">DJI Mic Mini</div>
+                <div class="device-sub mono">USB Audio · 48kHz</div>
+              </div>
+            </div>
+
+            <div class="vu-meter" id="vuMeter" aria-hidden="true"></div>
+
+            <div class="field-row">
+              <label class="field-label" for="deviceSelect">Input device</label>
+              <select class="select" id="deviceSelect">
+                <option>DJI Mic Mini</option>
+                <option>Realtek Digital Microphone</option>
+                <option>Headset Microphone (Bluetooth)</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label class="field-label">Gain</label>
+              <div class="gain-track"><div class="gain-fill" style="width:64%"></div></div>
+            </div>
+
+            <div class="audio-actions">
+              <button class="btn btn-ghost btn-sm" id="muteBtn">
+                <svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 6v4h2.5L9 13V3L5.5 6z" fill="currentColor"/></svg>
+                Mute
+              </button>
+              <button class="btn btn-ghost btn-sm" id="testMicBtn">
+                <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+                Test Microphone
+              </button>
+            </div>
+          </div>
+
+          <div class="panel recent-panel">
+            <div class="panel-header">
+              <h3>Recent Commands</h3>
+              <button class="link-btn" data-goto="commands">View all →</button>
+            </div>
+            <div class="recent-list" id="recentList"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Quick actions strip -->
+      <div class="panel quick-panel">
+        <div class="panel-header">
+          <h3>Quick Actions</h3>
+          <span class="panel-hint">Personalizable próximamente</span>
+        </div>
+        <div class="quick-grid" id="quickGridHome"></div>
+      </div>
+    </section>
+
+    <!-- ============ COMMAND CENTER VIEW ============ -->
+    <section class="view" id="view-commands">
+      <div class="view-heading">
+        <div>
+          <h2>Command Center</h2>
+          <p class="view-subtitle">Historial completo de comandos ejecutados por NEXUS.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="filters-row">
+          <div class="filter-tabs" id="filterTabs">
+            <button class="filter-tab is-active" data-filter="all">Todos</button>
+            <button class="filter-tab" data-filter="success">Success</button>
+            <button class="filter-tab" data-filter="failed">Failed</button>
+            <button class="filter-tab" data-filter="cancelled">Cancelled</button>
+            <button class="filter-tab" data-filter="confirm">Confirmation</button>
+          </div>
+          <div class="search-box">
+            <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <input type="text" placeholder="Buscar comando… (demo)" disabled>
+          </div>
+        </div>
+
+        <div class="command-table" id="commandTable"></div>
+      </div>
+    </section>
+
+    <!-- ============ QUICK ACTIONS VIEW ============ -->
+    <section class="view" id="view-actions">
+      <div class="view-heading">
+        <div>
+          <h2>Quick Actions</h2>
+          <p class="view-subtitle">Accesos rápidos configurables. La edición se habilitará cuando se implemente la lógica real.</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" disabled>
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Add action
+        </button>
+      </div>
+      <div class="panel">
+        <div class="quick-grid quick-grid-lg" id="quickGridFull"></div>
+      </div>
+    </section>
+
+    <!-- ============ SETTINGS VIEW ============ -->
+    <section class="view" id="view-settings">
+      <div class="view-heading">
+        <div>
+          <h2>Settings</h2>
+          <p class="view-subtitle">Configuración de NEXUS Voice Desktop.</p>
+        </div>
+      </div>
+
+      <div class="settings-layout">
+        <div class="settings-tabs" id="settingsTabs">
+          <button class="settings-tab is-active" data-stab="general">General</button>
+          <button class="settings-tab" data-stab="audio">Audio</button>
+          <button class="settings-tab" data-stab="voice">Voice</button>
+          <button class="settings-tab" data-stab="commands">Commands</button>
+          <button class="settings-tab" data-stab="ai">AI</button>
+          <button class="settings-tab" data-stab="privacy">Privacy</button>
+          <button class="settings-tab" data-stab="integrations">Integrations</button>
+        </div>
+
+        <div class="settings-content">
+
+          <div class="settings-pane is-active" id="pane-general">
+            <div class="panel">
+              <h3 class="pane-title">Startup</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">Start NEXUS with Windows</div><div class="setting-desc">Inicia automáticamente al encender el equipo.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Start minimized</div><div class="setting-desc">Abre directamente en la bandeja del sistema.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">System tray mode</div><div class="setting-desc">Permanece activo en segundo plano.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+            </div>
+            <div class="panel">
+              <h3 class="pane-title">Appearance</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">Theme</div><div class="setting-desc">NEXUS está optimizado para modo oscuro.</div></div>
+                <select class="select select-sm"><option>Dark (recomendado)</option><option>Light — próximamente</option></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-pane" id="pane-audio">
+            <div class="panel">
+              <h3 class="pane-title">Input Device</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">Input Device</div><div class="setting-desc">Dispositivo actual: DJI Mic Mini</div></div>
+                <select class="select select-sm">
+                  <option>DJI Mic Mini</option>
+                  <option>Realtek Digital Microphone</option>
+                  <option>Headset Microphone (Bluetooth)</option>
+                </select>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Input Level</div><div class="setting-desc">Nivel de captura en tiempo real.</div></div>
+                <div class="gain-track" style="width:180px"><div class="gain-fill" style="width:58%"></div></div>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Microphone Test</div><div class="setting-desc">Reproduce una prueba de 3 segundos.</div></div>
+                <button class="btn btn-ghost btn-sm">Test</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-pane" id="pane-voice">
+            <div class="panel">
+              <h3 class="pane-title">Wake Word</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">Wake word</div><div class="setting-desc">Palabra de activación de NEXUS.</div></div>
+                <input class="text-input" type="text" value="Nexus">
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Wake word enabled</div><div class="setting-desc">Desactiva para requerir activación manual.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+            </div>
+            <div class="panel">
+              <h3 class="pane-title">Language</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">Recognition language</div><div class="setting-desc">Idioma utilizado para reconocer comandos.</div></div>
+                <select class="select select-sm"><option>Español</option><option>English</option></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-pane" id="pane-commands">
+            <div class="panel">
+              <h3 class="pane-title">Confirmation Rules</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">Confirm destructive actions</div><div class="setting-desc">Eliminar archivos, cerrar apps sin guardar, etc.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Confirm system-level actions</div><div class="setting-desc">Apagar, reiniciar, cambios de red.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Command timeout</div><div class="setting-desc">Tiempo máximo de espera por confirmación.</div></div>
+                <select class="select select-sm"><option>10 seconds</option><option>20 seconds</option><option>30 seconds</option></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-pane" id="pane-ai">
+            <div class="panel">
+              <h3 class="pane-title">Interpretation Engine</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">Response verbosity</div><div class="setting-desc">Cuánto detalle da NEXUS al responder.</div></div>
+                <select class="select select-sm"><option>Concise</option><option>Standard</option><option>Detailed</option></select>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Ask when uncertain</div><div class="setting-desc">Pide aclaración si el comando es ambiguo.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-pane" id="pane-privacy">
+            <div class="panel">
+              <h3 class="pane-title">Privacy</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">Microphone activation indicator</div><div class="setting-desc">Muestra un indicador visual mientras el mic está activo.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Command history</div><div class="setting-desc">Guarda un registro local de comandos.</div></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Clear history</div><div class="setting-desc">Elimina permanentemente el historial guardado.</div></div>
+                <button class="btn btn-danger-ghost btn-sm">Clear history</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-pane" id="pane-integrations">
+            <div class="panel">
+              <h3 class="pane-title">Connected Apps</h3>
+              <div class="setting-row">
+                <div><div class="setting-name">ShieldPort</div><div class="setting-desc">Permite abrir y controlar ShieldPort por voz.</div></div>
+                <span class="pill pill-success">CONNECTED</span>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">File Explorer</div><div class="setting-desc">Búsqueda y apertura de carpetas.</div></div>
+                <span class="pill pill-success">CONNECTED</span>
+              </div>
+              <div class="setting-row">
+                <div><div class="setting-name">Spotify</div><div class="setting-desc">Control de reproducción por voz.</div></div>
+                <span class="pill pill-neutral">NOT CONNECTED</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ============ MINI MODE (floating compact widget) ============ -->
+<div class="mini-mode" id="miniMode">
+  <div class="mini-drag-handle"></div>
+  <div class="mini-header">
+    <div class="mini-orb-dot" id="miniOrbDot"></div>
+    <span class="mini-title">NEXUS</span>
+    <span class="mini-state mono" id="miniStateLabel">IDLE</span>
+    <button class="mini-expand" id="miniExpandBtn" title="Expand">
+      <svg viewBox="0 0 16 16" width="13" height="13"><path d="M6 2H2v4M14 6V2h-4M10 14h4v-4M2 10v4h4" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div class="mini-bars" id="miniBars"></div>
+  <div class="mini-transcript mono" id="miniTranscript">Esperando palabra de activación…</div>
+</div>
+
+<!-- ============ CONFIRMATION MODAL ============ -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="confirm-modal">
+    <div class="confirm-icon">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3 2 20h20z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/><path d="M12 9.5v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="17" r="0.9" fill="currentColor"/></svg>
+    </div>
+    <div class="confirm-eyebrow">SENSITIVE ACTION</div>
+    <h3 class="confirm-title" id="confirmTitle">Delete folder</h3>
+    <div class="confirm-target mono" id="confirmTarget">D:\Backup</div>
+    <p class="confirm-desc" id="confirmDesc">This operation requires confirmation and cannot be undone once executed.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" id="confirmCancelBtn">Cancel</button>
+      <button class="btn btn-danger" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
